@@ -5,9 +5,12 @@ namespace Inertia;
 use Closure;
 use Illuminate\Support\Arr;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\MessageBag;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\ViewErrorBag;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Responsable;
+use Illuminate\Contracts\Support\MessageProvider;
 use Illuminate\Support\Facades\Response as ResponseFactory;
 
 class Response implements Responsable
@@ -44,6 +47,32 @@ class Response implements Responsable
         } else {
             $this->viewData[$key] = $value;
         }
+
+        return $this;
+    }
+
+    /**
+     * Flash a container of errors to the session.
+     *
+     * @param  \Illuminate\Contracts\Support\MessageProvider|array|string  $provider
+     * @param  string  $key
+     * @return $this
+     */
+    public function withErrors($provider, $key = 'default')
+    {
+        if ($provider instanceof MessageProvider) {
+            $value = $provider->getMessageBag();
+        } else {
+            $value = new MessageBag((array) $provider);
+        }
+
+        $errors = session()->get('errors', new ViewErrorBag());
+
+        if (! $errors instanceof ViewErrorBag) {
+            $errors = new ViewErrorBag();
+        }
+
+        session()->flash('errors', $errors->put($key, $value));
 
         return $this;
     }

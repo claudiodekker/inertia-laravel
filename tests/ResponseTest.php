@@ -2,13 +2,14 @@
 
 namespace Inertia\Tests;
 
-use Illuminate\Contracts\Support\Arrayable;
 use Inertia\Response;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Fluent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Http\Response as BaseResponse;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -182,5 +183,27 @@ class ResponseTest extends TestCase
         $this->assertSame('partial-data', $page->props->partial);
         $this->assertSame('/user/123', $page->url);
         $this->assertSame('123', $page->version);
+    }
+
+    public function test_validation_exceptions_are_returned_in_the_correct_format()
+    {
+        Route::post('/create', function (Request $request) {
+            $request->validate([
+                'name' => 'required',
+                'email' => 'required|email',
+            ]);
+
+            return Inertia::render('User/Edit');
+        });
+
+        $response = $this->json('POST', '/create', ['email' => 'inertia.js'], ['X-Inertia' => true]);
+        $response->assertJson([
+            'props' => [
+                'errors' => [
+                    'name' => 'The name field is required.',
+                    'email' => 'The email must be a valid email address.',
+                ],
+            ],
+        ]);
     }
 }

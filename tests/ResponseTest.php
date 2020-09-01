@@ -194,7 +194,7 @@ class ResponseTest extends TestCase
             ]);
         });
 
-        $response = $this->post('/foo', ['email' => 'inertia.js'], ['X-Inertia' => true]);
+        $response = $this->post('/foo', [], ['X-Inertia' => true]);
         $response->assertJson([
             'props' => [
                 'errors' => [

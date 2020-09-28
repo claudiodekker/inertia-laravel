@@ -97,10 +97,27 @@ class ServiceProvider extends BaseServiceProvider
         }
 
         $handler->renderable(function (HttpExceptionInterface $exception) {
-            if ($exception->getStatusCode() === 419 && $exception->getPrevious() instanceof TokenMismatchException) {
+            $statusCode = $exception->getStatusCode();
+            $previous = $exception->getPrevious();
+
+            if ($statusCode === 419
+                && $previous instanceof TokenMismatchException
+                && Config::get('inertia.csrf.enabled', false)
+            ) {
                 return Redirect::back()->with([
-                    'error' => Config::get('inertia.csrf_error', 'The page expired, please try again.'),
+                    '_token_mismatch' => __(Config::get('inertia.csrf.error', 'The page expired, please try again.')),
                 ]);
+            }
+
+            if (Config::get('inertia.error.enabled', false)
+                && in_array($statusCode, Config::get('inertia.error.status_codes', [500, 503, 404, 403]), true)
+                && app()->environment(Config::get('inertia.error.environments', 'production'))
+            ) {
+                return Inertia::render(Config::get('inertia.error.component', 'Error'), [
+                    'status' => $statusCode, 'exception' => $previous,
+                ])
+                    ->toResponse(request())
+                    ->setStatusCode($statusCode);
             }
         });
     }

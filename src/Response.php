@@ -19,6 +19,7 @@ use UnitEnum;
 class Response implements Responsable
 {
     use Macroable;
+    use PreservesBigIntegers;
     use ResolvesUrl;
 
     /**
@@ -118,6 +119,7 @@ class Response implements Responsable
         string $version = '',
         bool $encryptHistory = false,
         ?Closure $urlResolver = null,
+        bool $preserveBigIntegers = false,
     ) {
         $this->component = $component;
         $this->sharedProps = $sharedProps;
@@ -129,6 +131,19 @@ class Response implements Responsable
         $this->interstitial = session()->pull(SessionKey::INTERSTITIAL, false);
         $this->encryptHistory = $encryptHistory;
         $this->urlResolver = $urlResolver;
+        $this->preserveBigIntegers = $preserveBigIntegers;
+    }
+
+    /**
+     * Preserve integers outside JavaScript's safe range as BigInt values.
+     *
+     * @return $this
+     */
+    public function preserveBigIntegers(bool $preserve = true): self
+    {
+        $this->preserveBigIntegers = $preserve;
+
+        return $this;
     }
 
     /**
@@ -220,6 +235,8 @@ class Response implements Responsable
         $resolver = new PropsResolver($request, $this->component);
         [$resolvedProps, $resolvedMetadata] = $resolver->resolve($this->sharedProps, $this->props);
 
+        $resolvedProps = $this->encodeBigIntegersWhenEnabled($resolvedProps);
+
         $page = array_merge(
             [
                 'component' => $this->component,
@@ -228,6 +245,7 @@ class Response implements Responsable
                 'version' => $this->version,
             ],
             $resolvedMetadata,
+            $this->resolvePreserveBigIntegers($request),
             $this->resolveClearHistory($request),
             $this->resolveEncryptHistory($request),
             $this->resolveFlashData($request),
@@ -276,7 +294,21 @@ class Response implements Responsable
     {
         $flash = Inertia::pullFlashed($request);
 
-        return $flash ? ['flash' => $flash] : [];
+        if (! $flash) {
+            return [];
+        }
+
+        return ['flash' => $this->encodeBigIntegersWhenEnabled($flash)];
+    }
+
+    /**
+     * Resolve the preserve big integers flag.
+     *
+     * @return array<string, mixed>
+     */
+    protected function resolvePreserveBigIntegers(Request $request): array
+    {
+        return $this->preserveBigIntegers ? ['preserveBigIntegers' => true] : [];
     }
 
     /**
